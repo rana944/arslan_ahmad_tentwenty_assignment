@@ -1,0 +1,15 @@
+export default {
+    black: "#000",
+    vip: "#564CA3",
+    white: "#FFFFFF",
+    tabIcon: "#827D88",
+    selected: "#CD9D0F",
+    bottomTab: "#2E2739",
+    paragraph: "#8F8F8F",
+    fontColor: "#202C43",
+    secondaryBg: "#F2F2F6",
+    buttonColor: "#61C3F2",
+    notAvailable: "#A6A6A6",
+    stepper: "rgba(166, 166, 166, 0.1)",
+    searchPlaceHolder: "rgba(32, 44, 67, 0.3)",
+}
