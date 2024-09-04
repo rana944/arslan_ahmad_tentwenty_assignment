@@ -32,6 +32,10 @@ const styles = StyleSheet.create({
     },
     movieTitleContainer: {
         flex: 3,
+    },
+    headerOuterContainer: {
+        position: 'absolute',
+        zIndex: 100,
     }
 });
 

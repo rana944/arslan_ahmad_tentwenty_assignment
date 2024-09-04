@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import MainContainer from "containers/MainContainer";
-import { TextInput, View } from "react-native";
+import { TextInput, useAnimatedValue, View } from "react-native";
 import styles from "./MovieSearchStyles";
 import Icons from "assets/icons";
 import Row from "components/Row";
@@ -13,6 +13,7 @@ import CustomText from "components/CustomText";
 import ApiUrls from "services/ApiUrls";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenNames } from "utils/enums";
+import Animated, { clamp, interpolate, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue } from "react-native-reanimated";
 
 const MovieSearchScreen = () => {
     const { params } = useRoute();
@@ -21,26 +22,10 @@ const MovieSearchScreen = () => {
     const [searchText, setSearchText] = useState("");
     const movies = params?.movies as IMovie[] || [];
 
+    const scrollY = useSharedValue(0);
+
     const onChangeText = (text: string) => {
         setSearchText(text);
-    }
-
-    const HeaderComponent = () => {
-        return (
-            <Row style={styles.searchBar}>
-                <Row style={styles.searchInputContainer}>
-                    <Icons.SearchIcon />
-                    <Spacer width={10} />
-                    <TextInput
-                        style={styles.searchInput}
-                        onChangeText={onChangeText}
-                        placeholder="TV shows, movies and more"
-                        placeholderTextColor={Colors.searchPlaceHolder}
-                    />
-                </Row>
-                <Icons.CloseIcon onPress={navigation.goBack} />
-            </Row>
-        )
     }
 
     const renderItem = ({ item }: { item: IMovie }) => {
@@ -65,30 +50,50 @@ const MovieSearchScreen = () => {
         );
     }
 
+    const headerAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            top: insets.top,
+            transform: [
+                {
+                    translateY: -clamp(scrollY.value, 0, 150),
+                }
+            ],
+        }
+    }, [scrollY.value]);
+
+    const headerSpaceAnimatedStyle = useAnimatedStyle(() => {
+        return {
+            height: interpolate(scrollY.value, [0, 150], [70, 0]),
+        }
+    }, [scrollY.value])
+
     const filteredMovies = movies.filter(movie => movie.title.toLowerCase().includes(searchText.toLocaleLowerCase()));
 
     return (
         <MainContainer safeArea isLoading={false} hideViewOnLoading={false} style={[styles.container, { paddingBottom: insets.bottom + 30 }]}>
-            <Spacer height={insets.top ? 2 : 20} />
-            <Row style={styles.searchBar}>
-                <Row style={styles.searchInputContainer}>
-                    <Icons.SearchIcon />
-                    <Spacer width={10} />
-                    <TextInput
-                        style={styles.searchInput}
-                        onChangeText={onChangeText}
-                        placeholder="TV shows, movies and more"
-                        placeholderTextColor={Colors.searchPlaceHolder}
-                        onSubmitEditing={() => navigation.navigate(ScreenNames.MOVIE_SEARCH_RESULT, { movies: filteredMovies })}
-                    />
+            <Animated.View style={[styles.headerOuterContainer, headerAnimatedStyle]}>
+                <Spacer height={10} />
+                <Row style={styles.searchBar}>
+                    <Row style={styles.searchInputContainer}>
+                        <Icons.SearchIcon />
+                        <Spacer width={10} />
+                        <TextInput
+                            style={styles.searchInput}
+                            onChangeText={onChangeText}
+                            placeholder="TV shows, movies and more"
+                            placeholderTextColor={Colors.searchPlaceHolder}
+                            onSubmitEditing={() => navigation.navigate(ScreenNames.MOVIE_SEARCH_RESULT, { movies: filteredMovies })}
+                        />
+                    </Row>
+                    <Icons.CloseIcon onPress={navigation.goBack} />
                 </Row>
-                <Icons.CloseIcon onPress={navigation.goBack} />
-            </Row>
-            <Spacer />
+            </Animated.View>
+            <Animated.View style={headerSpaceAnimatedStyle} />
             <FlashList
                 data={filteredMovies}
                 renderItem={renderItem}
                 estimatedItemSize={180}
+                onScroll={e => scrollY.value = e.nativeEvent.contentOffset.y}
                 onEndReachedThreshold={0.2}
                 ItemSeparatorComponent={Spacer}
                 showsVerticalScrollIndicator={false}
