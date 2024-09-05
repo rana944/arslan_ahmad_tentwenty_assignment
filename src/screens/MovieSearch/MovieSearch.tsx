@@ -13,7 +13,7 @@ import CustomText from "components/CustomText";
 import ApiUrls from "services/ApiUrls";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenNames } from "utils/enums";
-import Animated, { clamp, interpolate, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue } from "react-native-reanimated";
+import Animated, { clamp, interpolate, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withClamp, withSpring, withTiming } from "react-native-reanimated";
 
 const MovieSearchScreen = () => {
     const { params } = useRoute();
@@ -23,6 +23,7 @@ const MovieSearchScreen = () => {
     const movies = params?.movies as IMovie[] || [];
 
     const scrollY = useSharedValue(0);
+    const startScroll = useSharedValue(0);
 
     const onChangeText = (text: string) => {
         setSearchText(text);
@@ -51,21 +52,23 @@ const MovieSearchScreen = () => {
     }
 
     const headerAnimatedStyle = useAnimatedStyle(() => {
+        const difference = clamp(Math.abs(scrollY.value) - Math.abs(startScroll.value), 0, 150);
         return {
             top: insets.top,
             transform: [
                 {
-                    translateY: -clamp(scrollY.value, 0, 150),
+                    translateY: withTiming(-difference, { duration: 500 }),
                 }
             ],
         }
-    }, [scrollY.value]);
+    }, [scrollY.value, startScroll.value]);
 
     const headerSpaceAnimatedStyle = useAnimatedStyle(() => {
+        const difference = clamp(Math.abs(scrollY.value) - Math.abs(startScroll.value), 0, 150);
         return {
-            height: interpolate(scrollY.value, [0, 150], [70, 0]),
+            height: withTiming(interpolate(difference, [0, 150], [100, 0]), { duration: 500 }),
         }
-    }, [scrollY.value])
+    }, [scrollY.value, startScroll.value])
 
     const filteredMovies = movies.filter(movie => movie.title.toLowerCase().includes(searchText.toLocaleLowerCase()));
 
@@ -93,7 +96,8 @@ const MovieSearchScreen = () => {
                 data={filteredMovies}
                 renderItem={renderItem}
                 estimatedItemSize={180}
-                onScroll={e => scrollY.value = e.nativeEvent.contentOffset.y}
+                onScroll={e => scrollY.value = Math.abs(e.nativeEvent.contentOffset.y)}
+                onScrollBeginDrag={e => startScroll.value = Math.abs(e.nativeEvent.contentOffset.y)}
                 onEndReachedThreshold={0.2}
                 ItemSeparatorComponent={Spacer}
                 showsVerticalScrollIndicator={false}
