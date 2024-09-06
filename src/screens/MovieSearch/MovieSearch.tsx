@@ -13,7 +13,9 @@ import CustomText from "components/CustomText";
 import ApiUrls from "services/ApiUrls";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenNames } from "utils/enums";
-import Animated, { clamp, interpolate, useAnimatedReaction, useAnimatedStyle, useDerivedValue, useSharedValue, withClamp, withSpring, withTiming } from "react-native-reanimated";
+import Animated, { interpolate, useAnimatedScrollHandler, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+
+const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
 const MovieSearchScreen = () => {
     const { params } = useRoute();
@@ -22,8 +24,9 @@ const MovieSearchScreen = () => {
     const [searchText, setSearchText] = useState("");
     const movies = params?.movies as IMovie[] || [];
 
-    const scrollY = useSharedValue(0);
-    const startScroll = useSharedValue(0);
+    const [headerHiddenValue, headerVisibleValue] = [insets.top == 0 ? -100 : -insets.top, insets.top == 0 ? 0 : insets.top]
+
+    const difference = useSharedValue(150);
 
     const onChangeText = (text: string) => {
         setSearchText(text);
@@ -51,30 +54,47 @@ const MovieSearchScreen = () => {
         );
     }
 
-    const headerAnimatedStyle = useAnimatedStyle(() => {
-        const difference = clamp(Math.abs(scrollY.value) - Math.abs(startScroll.value), 0, 150);
+    const filteredMovies = movies.filter(movie => movie.title.toLowerCase().includes(searchText.toLocaleLowerCase()));
+
+    const scrollHandler = useAnimatedScrollHandler({
+        onScroll: (event, context) => {
+            if (context.startOffset < event.contentOffset.y) {
+                difference.value = 0;
+            } else if (context.startOffset > event.contentOffset.y) {
+                difference.value = 150;
+            }
+        },
+        onBeginDrag: (event, context) => {
+            context.startOffset = event.contentOffset.y;
+        },
+        onEndDrag: (e, context) => {
+            if (context.startOffset > e.contentOffset.y) {
+                difference.value = 150;
+            } else if (context.startOffset < e.contentOffset.y) {
+                difference.value = 0;
+            }
+        }
+    });
+
+    const animatedHeaderStyle = useAnimatedStyle(() => {
         return {
-            top: insets.top,
             transform: [
                 {
-                    translateY: withTiming(-difference, { duration: 500 }),
+                    translateY: withTiming(interpolate(difference.value, [0, 150], [headerHiddenValue, headerVisibleValue] /* [-topInsets * 2, topInsets] */)),
                 }
             ],
         }
-    }, [scrollY.value, startScroll.value]);
+    });
 
-    const headerSpaceAnimatedStyle = useAnimatedStyle(() => {
-        const difference = clamp(Math.abs(scrollY.value) - Math.abs(startScroll.value), 0, 150);
+    const animatedFlatListStyle = useAnimatedStyle(() => {
         return {
-            height: withTiming(interpolate(difference, [0, 150], [100, 0]), { duration: 500 }),
+            top: withTiming(interpolate(difference.value, [0, 150], [0, 80]))
         }
-    }, [scrollY.value, startScroll.value])
-
-    const filteredMovies = movies.filter(movie => movie.title.toLowerCase().includes(searchText.toLocaleLowerCase()));
+    });
 
     return (
         <MainContainer safeArea isLoading={false} hideViewOnLoading={false} style={[styles.container, { paddingBottom: insets.bottom + 30 }]}>
-            <Animated.View style={[styles.headerOuterContainer, headerAnimatedStyle]}>
+            <Animated.View style={[styles.headerOuterContainer, animatedHeaderStyle]}>
                 <Spacer height={10} />
                 <Row style={styles.searchBar}>
                     <Row style={styles.searchInputContainer}>
@@ -91,13 +111,14 @@ const MovieSearchScreen = () => {
                     <Icons.CloseIcon onPress={navigation.goBack} />
                 </Row>
             </Animated.View>
-            <Animated.View style={headerSpaceAnimatedStyle} />
-            <FlashList
+            <AnimatedFlashList
                 data={filteredMovies}
                 renderItem={renderItem}
+                style={animatedFlatListStyle}
                 estimatedItemSize={180}
-                onScroll={e => scrollY.value = Math.abs(e.nativeEvent.contentOffset.y)}
-                onScrollBeginDrag={e => startScroll.value = Math.abs(e.nativeEvent.contentOffset.y)}
+                onScroll={scrollHandler}
+                bounces={false}
+                bouncesZoom={false}
                 onEndReachedThreshold={0.2}
                 ItemSeparatorComponent={Spacer}
                 showsVerticalScrollIndicator={false}
